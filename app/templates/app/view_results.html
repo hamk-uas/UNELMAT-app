@@ -1,0 +1,41 @@
+{% extends 'app/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+            <h2>{{ folder.name }}</h2>
+            <a href="{% url 'processed_folders' %}" class="btn btn-primary">Back</a>
+        </div>
+    </div>
+    <div class="row">
+        {% for image in images_info %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                {% if image.combined_blister_url %}
+                <!-- Making the image clickable to open edit_image.html -->
+                <a href="{% url 'edit_image_stages' folder.id image.id %}">
+                    <img src="{{ image.combined_blister_url }}" class="card-img-top" alt="{{ image.original_image_name }}">
+                </a>
+                <div class="card-body text-center">
+                    <h5 class="card-title">{{ image.original_image_name }}</h5>
+                    {% if image.grading_info %}
+                    <p>Grade: {{ image.grading_info.grade }}</p>
+                    <p>Area: {{ image.grading_info.area|floatformat:2 }}%</p>
+                    <p>Frequency: {{ image.grading_info.frequency }}</p>
+                    {% else %}
+                    <p>Grading information not available</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="card-body">
+                    <p class="text-center">Combined blister image not available</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

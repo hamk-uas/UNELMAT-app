@@ -1,0 +1,20 @@
+{% extends 'app/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Processed Folders</h2>
+    <div class="row">
+        {% for folder in processed_folders %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ folder.name }}</h5>
+                    <a href="{% url 'view_results' folder_id=folder.id %}" class="btn btn-primary">View Results</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <a href="{% url 'home' %}" class="btn btn-secondary mt-4">Back to Home</a>
+</div>
+{% endblock %}

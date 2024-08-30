@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fabric.js Test Case</title>
+    <!-- Load Fabric.js from CDN -->
+    <script src="https://unpkg.com/fabric@4.6.0/dist/fabric.min.js"></script>
+</head>
+<body>
+
+<!-- Canvas Element -->
+<canvas id="testCanvas" width="800" height="600" style="border:1px solid #000;"></canvas>
+
+<script>
+    // Ensure Fabric.js is loaded and accessible
+    if (typeof fabric !== 'undefined') {
+        alert('Fabric.js is loaded successfully.');
+
+        // Initialize the Fabric.js Canvas
+        let testCanvas = new fabric.Canvas('testCanvas');
+
+        // Add a simple rectangle to the canvas
+        let rect = new fabric.Rect({
+            left: 100,
+            top: 100,
+            fill: 'red',
+            width: 200,
+            height: 100
+        });
+
+        testCanvas.add(rect);
+        testCanvas.renderAll();
+
+        alert('Rectangle added to the canvas.');
+    } else {
+        alert('Fabric.js failed to load.');
+    }
+</script>
+
+</body>
+</html>

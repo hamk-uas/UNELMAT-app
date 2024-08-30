@@ -1,0 +1,353 @@
+{% extends 'app/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3">
+            <div class="sidebar">
+                <ul class="nav flex-column">
+                    {% for stage_name in "Background Removal,Masking,Detection,Classification"|split:"," %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_stage == stage_name %}active{% endif %}" 
+                           href="{% url 'edit_image_stages' folder_id=folder.id image_id=image.id %}?stage={{ stage_name|urlencode }}">
+                            {{ stage_name }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9">
+            <h3>{{ active_stage }} - {{ original_image_name }}</h3>
+            <div class="row">
+                {% with active_stage_images=stages|get_item:active_stage %}
+                {% for image_name, image_url in active_stage_images.items %}
+                <div class="col-md-4">
+                    {% if active_stage == 'Background Removal' and image_name == 'Contours' %}
+                    <div class="card mb-4 open-modal-contour" data-bs-toggle="modal" data-bs-target="#contourEditorModal" data-image-url="{{ image_url }}" data-image-id="{{ image.id }}">
+                        <img src="{{ image_url }}" class="card-img-top hover-effect" alt="{{ image_name }}">
+                        <div class="card-body">
+                            <p class="card-text">{{ image_name }}</p>
+                        </div>
+                    </div>
+                    {% elif active_stage == 'Masking' and image_name == 'Region' %}
+                    <div class="card mb-4 open-modal-region" data-bs-toggle="modal" data-bs-target="#regionEditorModal" data-image-url="{{ image_url }}">
+                        <img src="{{ image_url }}" class="card-img-top hover-effect" alt="{{ image_name }}">
+                        <div class="card-body">
+                            <p class="card-text">{{ image_name }}</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="card mb-4">
+                        <img src="{{ image_url }}" class="card-img-top" alt="{{ image_name }}">
+                        <div class="card-body">
+                            <p class="card-text">{{ image_name }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endwith %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Contour Image Editing -->
+<div class="modal fade" id="contourEditorModal" tabindex="-1" aria-labelledby="contourEditorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contourEditorLabel">Edit Contour Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="contourCanvas"></canvas> <!-- Canvas should be resized dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="addCropBtn">Add Crop Area</button>
+                <button type="button" class="btn btn-primary" id="applyCropBtn">Apply Crop</button>
+                <button type="button" class="btn btn-primary" id="saveContourBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Region Image Editing -->
+<div class="modal fade" id="regionEditorModal" tabindex="-1" aria-labelledby="regionEditorLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="regionEditorLabel">Edit Region Image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <canvas id="regionCanvas"></canvas> <!-- Canvas should be resized dynamically -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="addRectBtn">Add Rectangle</button>
+                <button type="button" class="btn btn-secondary" id="addCircleBtn">Add Circle</button>
+                <button type="button" class="btn btn-primary" id="applyRegionChangesBtn">Apply Changes</button>
+                <button type="button" class="btn btn-primary" id="saveRegionBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Load Fabric.js from CDN -->
+<script src="https://unpkg.com/fabric@4.6.0/dist/fabric.min.js"></script>
+
+<!-- Load Bootstrap JS for modals -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Custom CSS for hover effect -->
+<style>
+.hover-effect:hover {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+    cursor: pointer;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    let contourCanvas = new fabric.Canvas('contourCanvas');
+    let regionCanvas = new fabric.Canvas('regionCanvas');
+    let cropRect = null;
+    let selectedImageId = null;
+    let selectedStage = null;
+
+    // Handle card click to open the editor modal for Contour Image in Background Removal stage
+    document.querySelectorAll('.open-modal-contour').forEach(function(card) {
+        card.addEventListener('click', function() {
+            let imageUrl = card.getAttribute('data-image-url');
+            selectedImageId = card.getAttribute('data-image-id'); // Use the data-image-id attribute, which should store the actual numeric image ID
+            selectedStage = "Background Removal";
+
+            contourCanvas.clear();
+
+            // Load the image onto the canvas for editing
+            fabric.Image.fromURL(imageUrl, function(oImg) {
+                if (!oImg) {
+                    console.error("Failed to load image from URL:", imageUrl);
+                    return;
+                }
+
+                // Get the natural size of the image
+                let imgWidth = oImg.width;
+                let imgHeight = oImg.height;
+
+                // Calculate the scaling factor to fit the image into the screen
+                let maxCanvasWidth = window.innerWidth * 0.8;
+                let maxCanvasHeight = window.innerHeight * 0.8;
+                let scaleFactor = Math.min(maxCanvasWidth / imgWidth, maxCanvasHeight / imgHeight);
+
+                // Set the canvas size based on the scale factor
+                let canvasWidth = imgWidth * scaleFactor;
+                let canvasHeight = imgHeight * scaleFactor;
+                contourCanvas.setWidth(canvasWidth);
+                contourCanvas.setHeight(canvasHeight);
+
+                // Resize the image to fit the canvas
+                oImg.scaleToWidth(canvasWidth);
+                oImg.scaleToHeight(canvasHeight);
+
+                // Set the modal size to fit the canvas
+                let modalDialog = document.querySelector('#contourEditorModal .modal-dialog');
+                modalDialog.style.maxWidth = `${canvasWidth + 30}px`;
+                modalDialog.style.maxHeight = `${canvasHeight + 100}px`;
+
+                contourCanvas.add(oImg);
+                contourCanvas.renderAll();
+
+                // Show the modal for contour editing
+                let modal = new bootstrap.Modal(document.getElementById('contourEditorModal'));
+                modal.show();
+            }, { crossOrigin: 'anonymous' });
+        });
+    });
+
+    // Add crop area functionality
+    document.getElementById('addCropBtn').addEventListener('click', function() {
+        if (!cropRect) {
+            cropRect = new fabric.Rect({
+                left: 100, top: 100, width: 200, height: 200, fill: 'rgba(255,255,255,0.5)',
+                stroke: 'black', strokeWidth: 1, selectable: true, hasRotatingPoint: false
+            });
+            contourCanvas.add(cropRect);
+            contourCanvas.setActiveObject(cropRect);
+        }
+    });
+
+    // Apply crop area
+    document.getElementById('applyCropBtn').addEventListener('click', function() {
+        if (cropRect) {
+            let croppedCanvas = cropImage(contourCanvas, cropRect);
+            contourCanvas.clear();
+            fabric.Image.fromURL(croppedCanvas.toDataURL(), function(img) {
+                contourCanvas.setWidth(img.width);
+                contourCanvas.setHeight(img.height);
+                contourCanvas.add(img);
+                contourCanvas.renderAll();
+            });
+            cropRect = null;
+        }
+    });
+
+    function cropImage(canvas, cropRect) {
+        let croppedCanvas = document.createElement('canvas');
+        let croppedCtx = croppedCanvas.getContext('2d');
+
+        croppedCanvas.width = cropRect.getScaledWidth();
+        croppedCanvas.height = cropRect.getScaledHeight();
+
+        croppedCtx.drawImage(
+            canvas.getElement(),
+            cropRect.left, cropRect.top, cropRect.getScaledWidth(), cropRect.getScaledHeight(),
+            0, 0, cropRect.getScaledWidth(), cropRect.getScaledHeight()
+        );
+
+        return croppedCanvas;
+    }
+
+    // Save changes button for contour image
+    document.getElementById('saveContourBtn').addEventListener('click', function() {
+        let editedImageData = contourCanvas.toDataURL({ format: 'jpeg', quality: 0.8 });
+        fetch(`/save-edited-image/${selectedImageId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ image_data: editedImageData, stage: selectedStage, is_contour: true })
+        }).then(response => {
+            if (response.ok) {
+                alert("Contour image saved successfully!");
+                let modal = bootstrap.Modal.getInstance(document.getElementById('contourEditorModal'));
+                modal.hide();
+            } else {
+                alert("Error saving image.");
+            }
+        });
+    });
+
+    // Handle card click to open the editor modal for Region Image in Masking stage
+    document.querySelectorAll('.open-modal-region').forEach(function(card) {
+        card.addEventListener('click', function() {
+            let imageUrl = card.getAttribute('data-image-url');
+            selectedImageId = card.querySelector('img').getAttribute('alt');
+
+            regionCanvas.clear();
+
+            // Load the image onto the canvas for editing
+            fabric.Image.fromURL(imageUrl, function(oImg) {
+                if (!oImg) {
+                    console.error("Failed to load image from URL:", imageUrl);
+                    return;
+                }
+
+                // Get the natural size of the image
+                let imgWidth = oImg.width;
+                let imgHeight = oImg.height;
+
+                // Calculate the scaling factor to fit the image into the screen
+                let maxCanvasWidth = window.innerWidth * 0.8;
+                let maxCanvasHeight = window.innerHeight * 0.8;
+                let scaleFactor = Math.min(maxCanvasWidth / imgWidth, maxCanvasHeight / imgHeight);
+
+                // Set the canvas size based on the scale factor
+                let canvasWidth = imgWidth * scaleFactor;
+                let canvasHeight = imgHeight * scaleFactor;
+                regionCanvas.setWidth(canvasWidth);
+                regionCanvas.setHeight(canvasHeight);
+
+                // Resize the image to fit the canvas
+                oImg.scaleToWidth(canvasWidth);
+                oImg.scaleToHeight(canvasHeight);
+
+                // Set the modal size to fit the canvas
+                let modalDialog = document.querySelector('#regionEditorModal .modal-dialog');
+                modalDialog.style.maxWidth = `${canvasWidth + 30}px`;
+                modalDialog.style.maxHeight = `${canvasHeight + 100}px`;
+
+                regionCanvas.add(oImg);
+                regionCanvas.renderAll();
+
+                // Show the modal for region editing
+                let modal = new bootstrap.Modal(document.getElementById('regionEditorModal'));
+                modal.show();
+            }, { crossOrigin: 'anonymous' });
+        });
+    });
+
+    // Add rectangle shape for region image
+    document.getElementById('addRectBtn').addEventListener('click', function() {
+        let rect = new fabric.Rect({
+            left: 50, top: 50, width: 100, height: 100, fill: 'rgba(255, 0, 0, 0.5)',
+            stroke: 'black', strokeWidth: 1, selectable: true, hasRotatingPoint: false
+        });
+        regionCanvas.add(rect);
+    });
+
+    // Add circle shape for region image
+    document.getElementById('addCircleBtn').addEventListener('click', function() {
+        let circle = new fabric.Circle({
+            left: 150, top: 150, radius: 50, fill: 'rgba(0, 0, 255, 0.5)',
+            stroke: 'black', strokeWidth: 1, selectable: true, hasRotatingPoint: false
+        });
+        regionCanvas.add(circle);
+    });
+
+    // Apply changes for region image (fix shapes in place)
+    document.getElementById('applyRegionChangesBtn').addEventListener('click', function() {
+        regionCanvas.discardActiveObject();
+        regionCanvas.renderAll();
+    });
+
+    // Save the region image with shapes
+    document.getElementById('saveRegionBtn').addEventListener('click', function() {
+        let editedImageData = regionCanvas.toDataURL({ format: 'jpeg', quality: 0.95 });
+        fetch(`/save-edited-image/${selectedImageId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ image_data: editedImageData, stage: 'Masking', is_contour: false })
+        }).then(response => response.json())
+          .then(data => {
+            if (data.success) {
+                alert("Region image with masking shapes saved successfully!");
+                location.reload();
+            } else {
+                alert("Error: " + data.message);
+            }
+        }).catch(error => {
+            console.error("Error:", error);
+            alert("An error occurred.");
+        });
+    });
+
+    // Helper function to get CSRF token from cookie
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            let cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock %}

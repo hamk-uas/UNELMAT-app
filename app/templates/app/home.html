@@ -1,0 +1,80 @@
+{% extends 'app/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <h2>Create a New Folder</h2>
+        {% if error_message %}
+        <div class="alert alert-danger">{{ error_message }}</div>
+        {% endif %}
+        <form method="POST" action="{% url 'create_folder' %}">
+            {% csrf_token %}
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" placeholder="Folder Name" name="folder_name" required>
+                <button class="btn btn-primary" type="submit">Create Folder</button>
+            </div>
+        </form>
+        
+        <h2>Start Processing</h2>
+        <form method="POST" action="{% url 'start_processing' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="folderSelect" class="form-label">Select Folder to Process</label>
+                <select class="form-select" id="folderSelect" name="folder_id" required>
+                    {% for folder in folders %}
+                    <option value="{{ folder.id }}">{{ folder.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-success" type="submit">Start Processing</button>
+        </form>
+    </div>
+</div> <!-- Closing the first row div here -->
+
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h2>Uploaded Folders</h2>
+        <div class="row">
+            {% for folder in folders %}
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ folder.name }}</h5>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal{{ folder.id }}">
+                            Upload Images
+                        </button>
+                        <a href="{% url 'view_folder' folder.id %}" class="btn btn-secondary">View Folder</a>
+                        <form method="POST" action="{% url 'delete_folder' folder.id %}" style="display:inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this folder?');">Delete Folder</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal for Uploading Images -->
+            <div class="modal fade" id="uploadModal{{ folder.id }}" tabindex="-1" aria-labelledby="uploadModalLabel{{ folder.id }}" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="uploadModalLabel{{ folder.id }}">Upload Images to {{ folder.name }}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form method="POST" enctype="multipart/form-data" action="{% url 'upload_images' folder.id %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="formFileMultiple{{ folder.id }}" class="form-label">Select multiple images</label>
+                                    <input class="form-control" type="file" id="formFileMultiple{{ folder.id }}" name="images" multiple required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Upload Images</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

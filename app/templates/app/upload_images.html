@@ -1,0 +1,15 @@
+{% extends 'app/base.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>Upload Images to {{ folder.name }}</h2>
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="formFileMultiple" class="form-label">Select multiple images</label>
+            <input class="form-control" type="file" id="formFileMultiple" name="images" multiple required>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload Images</button>
+    </form>
+</div>
+{% endblock %}
