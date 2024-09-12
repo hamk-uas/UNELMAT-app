@@ -24,6 +24,8 @@
         <!-- Main Content -->
         <div class="col-md-9">
             <h3>{{ active_stage }} - {{ original_image_name }}</h3>
+
+            <!-- Render Images for Stages -->
             <div class="row">
                 {% with active_stage_images=stages|get_item:active_stage %}
                 {% for image_name, image_url in active_stage_images.items %}
@@ -42,6 +44,13 @@
                             <p class="card-text">{{ image_name }}</p>
                         </div>
                     </div>
+                    {% elif active_stage == 'Classification' and image_name == 'Combined_Blisters' %}
+                    <div class="card mb-4">
+                        <img src="{{ image_url }}" class="card-img-top" alt="{{ image_name }}">
+                        <div class="card-body">
+                            <p class="card-title">Detected Blisters</p>
+                        </div>
+                    </div>
                     {% else %}
                     <div class="card mb-4">
                         <img src="{{ image_url }}" class="card-img-top" alt="{{ image_name }}">
@@ -52,6 +61,52 @@
                     {% endif %}
                 </div>
                 {% endfor %}
+                
+                {% if active_stage == 'Classification' %}
+                    <div class="col-md-4">
+                        {% if classification_result %}
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">Comparison Results</h5>
+                                <p class="card-text">Similarity Score: {{ classification_result.similarity_score|floatformat:4 }}</p>
+                                <p class="card-text">Grade: {{ classification_result.grade }}</p>
+                            </div>
+                        </div>
+                        {% elif classification_error %}
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">Error</h5>
+                                <p class="card-text text-danger">{{ classification_error }}</p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">No Match Found</h5>
+                                <p class="card-text">No classification results available.</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        {% if classification_result and classification_result.standard_image_url %}
+                        <div class="card mb-4">
+                            <img src="{{ classification_result.standard_image_url }}" class="card-img-top" alt="Matching Standard Image">
+                            <div class="card-body">
+                                <h5 class="card-title">Matching Standard Image</h5>
+                                <p class="card-text">{{ classification_result.standard_image }}</p>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">No Standard Image</h5>
+                                <p class="card-text">No matching standard image available.</p>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
                 {% endwith %}
             </div>
         </div>
@@ -67,7 +122,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <canvas id="contourCanvas"></canvas> <!-- Canvas should be resized dynamically -->
+                <canvas id="contourCanvas"></canvas>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" id="addCropBtn">Add Crop Area</button>
@@ -77,6 +132,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Modal for Region Image Editing -->
 <div class="modal fade" id="regionEditorModal" tabindex="-1" aria-labelledby="regionEditorLabel" aria-hidden="true">

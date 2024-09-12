@@ -1,3 +1,0 @@
-Grade: Grade 5
-Area of blisters: 0.988673723243771
-Frequency of blisters: 2

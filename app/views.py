@@ -16,7 +16,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.files.base import ContentFile
 from django.views.decorators.csrf import csrf_exempt
 import logging
-
+from .classification import classify_and_grade, STANDARD_IMAGES_PATH
 
 def home(request):
     folders = Folder.objects.all()
@@ -152,49 +152,41 @@ def start_processing(request):
         folder_id = request.POST.get('folder_id')
         folder = get_object_or_404(Folder, id=folder_id)
 
-        # Path to the folder where the user-uploaded images are stored
         folder_path = os.path.join(settings.MEDIA_ROOT, 'folders', folder.name)
-
-        # Path to the processed folder and detection folder
         processed_folder_path = os.path.join(folder_path, 'processed')
         removal_path = os.path.join(processed_folder_path, 'removals')
         detection_path = os.path.join(folder_path, 'detection')
 
-        # Ensure the necessary directories exist
         ensure_directory_exists(processed_folder_path)
         ensure_directory_exists(detection_path)
 
-        # Process images in the folder and get mask areas
         print("Starting image processing...")
         print("path", folder_path)
-        mask_area = process_images_in_folder(folder_path)
-        print(f"Mask areas returned: {mask_area}")
+        mask_areas = process_images_in_folder(folder_path)
+        print(f"Mask areas returned: {mask_areas}")
 
-        if not mask_area:
+        if not mask_areas:
             print("Error: No mask areas were returned from process_images_in_folder")
             return redirect('home')
 
-        # List of files in the removals subdirectory (where the final processed images are saved)
         file_names = [f for f in os.listdir(removal_path) if f.lower().endswith('.jpg')]
         print(f"Files found in removals folder: {file_names}")
 
         for file_name in file_names:
-            image_name, _ = os.path.splitext(file_name)
+            image_name = os.path.splitext(file_name)[0].replace('_removal', '')
             
-            # Remove the "_removal" suffix to match the original image name in mask_area
-            original_image_name = image_name.replace('_removal', '')
-            print(f"Checking if {original_image_name} is in mask_area...")
-
-            if original_image_name in mask_area:
-                print(f"Starting detection and grading for {original_image_name} with mask area {mask_area[original_image_name]}")
-                
-                # Pass the full path to the removal image to the detection function
+            if image_name in mask_areas:
                 removal_image_path = os.path.join(removal_path, file_name)
-                detect_and_grade_blisters(removal_image_path, detection_path, original_image_name, mask_area[original_image_name])
+                mask_area = mask_areas[image_name]
+                print(f"Processing {image_name} with mask area {mask_area}")
+                detect_and_grade_blisters(removal_image_path, detection_path, image_name, mask_area)
             else:
-                print(f"Error: No mask area found for {original_image_name}")
+                print(f"Warning: No mask area found for {image_name}. Using default value.")
+                # Use a default mask area or skip this image
+                default_mask_area = 1000000  # Adjust this value as needed
+                removal_image_path = os.path.join(removal_path, file_name)
+                detect_and_grade_blisters(removal_image_path, detection_path, image_name, default_mask_area)
 
-        # Redirect to a page displaying the final image with detected blisters
         return redirect('view_results', folder_id=folder.id)
 
     return redirect('home')
@@ -251,6 +243,12 @@ def view_results(request, folder_id):
     return render(request, 'app/view_results.html', context)
 
 logger = logging.getLogger(__name__)
+
+
+
+
+
+
 
 @csrf_exempt
 def save_edited_image(request, image_id):
@@ -316,18 +314,20 @@ def save_edited_image(request, image_id):
         return JsonResponse({'error': 'Invalid request method'}, status=405)
     
 
+from django.conf import settings
+
 def edit_image_stages(request, folder_id, image_id):
     folder = get_object_or_404(Folder, id=folder_id)
     image = get_object_or_404(Image, id=image_id)
     active_stage = request.GET.get('stage', 'Background Removal')
     original_image_name = os.path.splitext(os.path.basename(image.image.name))[0]
 
-    # Setting up paths to images in various stages
+    # Helper function to retrieve image paths
     def get_image_path(subfolder, suffix):
         relative_path = os.path.join('folders', folder.name, subfolder, f'{original_image_name}{suffix}')
         full_path = os.path.join(settings.MEDIA_ROOT, relative_path)
         if os.path.exists(full_path):
-            return os.path.join(settings.MEDIA_URL, relative_path.replace('\\', '/'))  
+            return os.path.join(settings.MEDIA_URL, relative_path.replace('\\', '/'))
         return None
 
     stages = {
@@ -342,16 +342,30 @@ def edit_image_stages(request, folder_id, image_id):
             "Removals": get_image_path('processed/removals', '_removal.jpg'),
         },
         "Detection": {
-            "Combined Blisters": get_image_path('detection/combined_blisters', '_blister.jpg'),
-            "Large Blisters": get_image_path('detection/large_blisters', '_lblister.jpg'),
-            "Small Blisters": get_image_path('detection/small_blisters', '_sblister.jpg'),
+            "Combined_Blisters": get_image_path('detection/combined_blisters', '_blister.jpg'),
+            "Large_Blisters": get_image_path('detection/large_blisters', '_lblister.jpg'),
+            "Small_Blisters": get_image_path('detection/small_blisters', '_sblister.jpg'),
         },
         "Classification": {
-            "Result": get_image_path('classification', '_result.jpg'),
-            "Heatmap": get_image_path('classification', '_heatmap.jpg'),
-            "Overlay": get_image_path('classification', '_overlay.jpg'),
+            "Combined_Blisters": get_image_path('detection/combined_blisters', '_blister.jpg'),
         }
     }
+
+    classification_result = None
+    classification_error = None
+    if active_stage == "Classification":
+        combined_blister_path = os.path.join(settings.MEDIA_ROOT, 'folders', str(folder.name), 'detection', 'combined_blisters', f'{original_image_name}_blister.jpg')
+        try:
+            classification_result, classification_error = classify_and_grade(combined_blister_path)
+            if classification_result and 'standard_image' in classification_result:
+                standard_image_path = os.path.join(STANDARD_IMAGES_PATH, classification_result['standard_image'])
+                if os.path.exists(standard_image_path):
+                    classification_result['standard_image_url'] = os.path.join(settings.MEDIA_URL, 'standard_images', classification_result['standard_image'])
+                else:
+                    classification_error = f"Standard image not found: {classification_result['standard_image']}"
+                    classification_result['standard_image'] = None
+        except Exception as e:
+            classification_error = f"An error occurred during classification: {str(e)}"
 
     context = {
         'folder': folder,
@@ -359,5 +373,7 @@ def edit_image_stages(request, folder_id, image_id):
         'stages': stages,
         'active_stage': active_stage,
         'original_image_name': original_image_name,
+        'classification_result': classification_result,
+        'classification_error': classification_error,
     }
     return render(request, 'app/edit_image.html', context)

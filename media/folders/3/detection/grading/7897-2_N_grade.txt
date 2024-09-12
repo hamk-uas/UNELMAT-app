@@ -1,0 +1,4 @@
+Grade: Grade 5
+Area of blisters: 0.13699214250231082
+Number of blisters: 42
+Number of blister clusters: 40
