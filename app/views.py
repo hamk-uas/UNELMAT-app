@@ -16,7 +16,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from django.core.files.base import ContentFile
 from django.views.decorators.csrf import csrf_exempt
 import logging
-from .classification import classify_and_grade, STANDARD_IMAGES_PATH
+from .classification import classify_and_compare, STANDARD_IMAGES_PATH
 
 def home(request):
     folders = Folder.objects.all()
@@ -356,7 +356,7 @@ def edit_image_stages(request, folder_id, image_id):
     if active_stage == "Classification":
         combined_blister_path = os.path.join(settings.MEDIA_ROOT, 'folders', str(folder.name), 'detection', 'combined_blisters', f'{original_image_name}_blister.jpg')
         try:
-            classification_result, classification_error = classify_and_grade(combined_blister_path)
+            classification_result, classification_error = classify_and_compare(combined_blister_path)
             if classification_result and 'standard_image' in classification_result:
                 standard_image_path = os.path.join(STANDARD_IMAGES_PATH, classification_result['standard_image'])
                 if os.path.exists(standard_image_path):
