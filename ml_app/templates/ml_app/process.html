@@ -1,0 +1,39 @@
+{% extends 'app/base.html' %}
+
+{% block content %}
+<h2>ML Blister Detection and Classification</h2>
+<form id="uploadForm" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="file" name="image" accept="image/*" required>
+    <button type="submit">Process Image</button>
+</form>
+
+<div id="results" style="display:none;">
+    <h3>Results:</h3>
+    <p>Number of detections: <span id="numDetections"></span></p>
+    <p>Best matching grade: <span id="bestGrade"></span></p>
+    <p>Similarity score: <span id="similarityScore"></span></p>
+    <img id="resultImage" src="" alt="Result Image" style="max-width:100%;">
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var formData = new FormData(this);
+    
+    fetch('{% url "process_ml" %}', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('numDetections').textContent = data.num_detections;
+        document.getElementById('bestGrade').textContent = data.best_match.grade;
+        document.getElementById('similarityScore').textContent = data.best_match.similarity_score.toFixed(2);
+        document.getElementById('resultImage').src = '/media/' + data.result_image;
+        document.getElementById('results').style.display = 'block';
+    })
+    .catch(error => console.error('Error:', error));
+});
+</script>
+{% endblock %}

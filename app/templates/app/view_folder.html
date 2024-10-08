@@ -11,6 +11,13 @@
                 <input type="hidden" name="folder_id" value="{{ folder.id }}">
                 <button type="submit" class="btn btn-success">Start Processing</button>
             </form>
+            <!-- Start Processing Button for the ml Approach -->
+            <form method="POST" action="{% url 'ml_app:process_ml' folder.id %}" class="d-inline">
+                {% csrf_token %}
+                <input type="hidden" name="folder_id" value="{{ folder.id }}">
+                <button type="submit" class="btn btn-warning">ML Processing</button>
+            </form>
+
             <!-- Add More Images Button -->
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
                 Add More Images

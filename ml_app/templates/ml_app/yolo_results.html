@@ -1,0 +1,32 @@
+{% extends 'app/base.html' %}
+
+{% load static %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
+            <h2>YOLO Detection Results for Folder: {{ folder.name }}</h2>
+            <a href="{% url 'processed_folders' %}" class="btn btn-primary">Back</a>
+        </div>
+    </div>
+    <div class="row">
+        {% for result in results %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <img src="{{ result.result_image }}" class="card-img-top" alt="{{ result.image_name }}">
+                <div class="card-body">
+                    <h5 class="card-title">{{ result.image_name }}</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">Number of Detections: {{ result.num_detections }}</li>
+                        <li class="list-group-item">Best Match: {{ result.best_match.standard_image }}</li>
+                        <li class="list-group-item">Similarity Score: {{ result.best_match.similarity_score|floatformat:2 }}</li>
+                        <li class="list-group-item">Grade: {{ result.best_match.grade }}</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

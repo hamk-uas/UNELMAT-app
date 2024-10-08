@@ -377,3 +377,7 @@ def edit_image_stages(request, folder_id, image_id):
         'classification_error': classification_error,
     }
     return render(request, 'app/edit_image.html', context)
+
+
+
+

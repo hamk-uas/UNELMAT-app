@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from . import views
 from django.conf import settings
 from django.conf.urls.static import static
@@ -15,6 +15,7 @@ urlpatterns = [
     path('processed-folders/', views.processed_folders, name='processed_folders'),
     path('folder/<int:folder_id>/image/<int:image_id>/edit/', views.edit_image_stages, name='edit_image_stages'),
     path('save-edited-image/<str:image_id>/', views.save_edited_image, name='save_edited_image'),
+    path('ml_app/', include(('ml_app.urls', 'ml_app'), namespace='ml_app')),
 
 
 
