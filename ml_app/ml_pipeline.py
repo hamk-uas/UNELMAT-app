@@ -13,6 +13,9 @@ sys.path.append(str(Path(settings.BASE_DIR) / 'ml_app' / 'yolov5'))
 from models.experimental import attempt_load
 from utils.general import non_max_suppression
 
+from .scripts.blister_comparison import compare_images
+
+
 STANDARD_IMAGES_PATH = os.path.join(settings.MEDIA_ROOT, 'standard_images')
 
 standard_img = [
@@ -99,17 +102,17 @@ def compare_blisters(detected_contours, standard_contours):
     return score / 3
 
 def visualize_results(image_path, img_resized, detections, best_match_info):
-    img_with_boxes = img_resized.copy()
+    plt.figure(figsize=(10, 10))
+    plt.imshow(img_resized)
 
-    # Draw bounding boxes without text
+    # Draw bounding boxes
     for *xyxy, conf, cls in detections:
         x1, y1, x2, y2 = map(int, xyxy)
-        color = (255, 0, 0)  # Blue color for bounding boxes
-        cv2.rectangle(img_with_boxes, (x1, y1), (x2, y2), color, 2)
+        rect = plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=2)
+        plt.gca().add_patch(rect)
 
-    plt.figure(figsize=(10, 10))
-    plt.imshow(img_with_boxes)
     plt.axis('off')
+    plt.tight_layout()
 
     # Get folder name and create 'yolo' subdirectory
     folder_name = Path(image_path).parent.name
@@ -123,12 +126,11 @@ def visualize_results(image_path, img_resized, detections, best_match_info):
 
     return str(output_path)
 
+
 def process_image(image_path, model, device, width=480, height=640):
     img_tensor, img_resized = preprocess_image(image_path, width=width, height=height)
     detections = detect_blisters(model, img_tensor, device)
     filtered_detections = post_process_detections(detections)
-    
-    classified_contours = classify_blisters(filtered_detections)
     
     standard_images = load_standard_images()
     best_match = None
@@ -138,8 +140,8 @@ def process_image(image_path, model, device, width=480, height=640):
         std_img_tensor, _ = preprocess_image(std_img_path, width=width, height=height)
         std_detections = detect_blisters(model, std_img_tensor, device)
         std_filtered_detections = post_process_detections(std_detections)
-        std_contours = classify_blisters(std_filtered_detections)
-        score = compare_blisters(classified_contours, std_contours)
+        
+        score = compare_images(filtered_detections, std_filtered_detections)
         
         if score > best_score:
             best_score = score
@@ -154,7 +156,6 @@ def process_image(image_path, model, device, width=480, height=640):
     
     result_image_path = visualize_results(image_path, img_resized, filtered_detections, best_match_info)
     return filtered_detections, best_match_info, result_image_path
-
 
 def run_pipeline(image_path, width=480, height=640):
     try:

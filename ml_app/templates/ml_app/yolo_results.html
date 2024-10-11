@@ -1,32 +1,120 @@
 {% extends 'app/base.html' %}
-
 {% load static %}
+{% load humanize %}
+
+{% block title %}YOLO Detection Results - {{ folder.name }}{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-12 d-flex justify-content-between align-items-center mb-4">
-            <h2>YOLO Detection Results for Folder: {{ folder.name }}</h2>
-            <a href="{% url 'processed_folders' %}" class="btn btn-primary">Back</a>
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2>YOLO Detection Results</h2>
+            <a href="{% url 'processed_folders' %}" class="btn btn-primary">Back to Folders</a>
         </div>
     </div>
-    <div class="row">
-        {% for result in results %}
-        <div class="col-md-6 mb-4">
+
+    <div class="row mb-4">
+        <div class="col-12">
             <div class="card">
-                <img src="{{ result.result_image }}" class="card-img-top" alt="{{ result.image_name }}">
                 <div class="card-body">
-                    <h5 class="card-title">{{ result.image_name }}</h5>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">Number of Detections: {{ result.num_detections }}</li>
-                        <li class="list-group-item">Best Match: {{ result.best_match.standard_image }}</li>
-                        <li class="list-group-item">Similarity Score: {{ result.best_match.similarity_score|floatformat:2 }}</li>
-                        <li class="list-group-item">Grade: {{ result.best_match.grade }}</li>
-                    </ul>
+                    <h5 class="card-title">Folder: {{ folder.name }}</h5>
+                    <p class="card-text">Total Images: {{ results|length }}</p>
+                    <p class="card-text">Processed on: {{ folder.processed_at|date:"F d, Y H:i" }}</p>
                 </div>
             </div>
         </div>
-        {% endfor %}
     </div>
+
+    {% if results %}
+        {% for result in results %}
+            <div class="row mb-5">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Detected Image: {{ result.image_name }}</h5>
+                        </div>
+                        <div class="card-body d-flex align-items-center justify-content-center">
+                            <img src="{{ result.result_image }}" class="img-fluid" alt="{{ result.image_name }} - Detected" loading="lazy">
+                        </div>
+                        <div class="card-footer">
+                            <a href="{{ result.result_image }}" class="btn btn-sm btn-outline-primary" target="_blank">View Full Size</a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Detection Info</h5>
+                        </div>
+                        <div class="card-body d-flex flex-column justify-content-center">
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item">Detections: {{ result.num_detections }}</li>
+                                <li class="list-group-item">Best Match: {{ result.best_match.standard_image }}</li>
+                                <li class="list-group-item">Similarity: {{ result.best_match.similarity_score|floatformat:2 }}</li>
+                                <li class="list-group-item">Grade: {{ result.best_match.grade }}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Standard Image: {{ result.best_match.standard_image }}</h5>
+                        </div>
+                        <div class="card-body d-flex align-items-center justify-content-center">
+                            <img src="{% get_media_prefix %}standard_images/{{ result.best_match.standard_image }}" class="img-fluid" alt="{{ result.best_match.standard_image }}" loading="lazy">
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% get_media_prefix %}standard_images/{{ result.best_match.standard_image }}" class="btn btn-sm btn-outline-secondary" target="_blank">View Full Size</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+
+        {% if is_paginated %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }} <span class="sr-only">(current)</span></span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info" role="alert">
+            No results found for this folder.
+        </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('[data-toggle="tooltip"]').tooltip();
+    });
+</script>
 {% endblock %}

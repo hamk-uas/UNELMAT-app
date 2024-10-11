@@ -10,6 +10,8 @@
                 <div class="card-body">
                     <h5 class="card-title">{{ folder.name }}</h5>
                     <a href="{% url 'view_results' folder_id=folder.id %}" class="btn btn-primary">View Results</a>
+                    <a href="{% url 'ml_app:view_yolo_results' folder.id %}" class="btn btn-success">View YOLO Results</a>
+
                 </div>
             </div>
         </div>
